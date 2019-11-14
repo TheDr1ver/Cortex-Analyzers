@@ -1,0 +1,105 @@
+{
+  "name": "MISP Exporter - Custom",
+  "version": "1.0",
+  "author": "Nick Driver (@TheDr1ver)",
+  "url": "https://misp-project.org",
+  "license": "MIT",
+  "description": "Export custom fields from TheHive to MISP the way we want them without recompiling from source.",
+  "dataTypeList": [
+    "thehive:case"
+  ],
+  "command": "MISPExporter/MISPExporter.py",
+  "baseConfig": "MISPExporter",
+  "configurationItems": [
+    {
+      "name": "misp_url",
+      "description": "URL to your MISP instance (e.g. https://misp.example.com)",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "misp_api",
+      "description": "MISP API key used for exporting this case to an event",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "universal_tag",
+      "description": "(Optional) A custom tag to apply to every newly created event",
+      "type": "string",
+      "multi": false,
+      "required": false
+    },
+    {
+      "name": "taxonomy_prefix",
+      "description": "(Optional) A custom taxonomy prefix to be used when tagging MISP attributes",
+      "type": "string",
+      "multi": false,
+      "required": false
+    },
+    {
+      "name": "thehive_url",
+      "description": "URL to your instance of TheHive (e.g. http://hive.example.com:9001)",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "thehive_token",
+      "description": "API Key for accessing TheHive",
+      "type": "string",
+      "multi": false,
+      "required": true
+    },
+    {
+      "name": "all_observables",
+      "description": "Send all observables to MISP, regardless of IOC status. 1=True 0=False",
+      "type": "number",
+      "multi": false,
+      "required": true,
+      "defaultValue": 1
+    },
+    {
+      "name": "support_files",
+      "description": "Send supporting documents uploaded to the case to MISP for context. 1=True 0=False",
+      "type": "number",
+      "multi": false,
+      "required": true,
+      "defaultValue": 1
+    },
+    {
+      "name": "misp_distribution",
+      "description": "MISP distribution level",
+      "type": "number",
+      "multi": false,
+      "required": true,
+      "defaultValue": 0
+    },
+    {
+      "name": "misp_threat_level",
+      "description": "MISP threat level",
+      "type": "number",
+      "multi": false,
+      "required": true,
+      "defaultValue": 4
+    },
+    {
+      "name": "misp_analysis",
+      "description": "MISP analysis level",
+      "type": "number",
+      "multi": false,
+      "required": true,
+      "defaultValue": 2
+    },
+    {
+      "name": "misp_publish",
+      "description": "MISP Publish 1=True 0=False",
+      "type": "number",
+      "multi": false,
+      "required": true,
+      "defaultValue": 0
+    }
+  ]
+}
