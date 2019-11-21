@@ -49,26 +49,26 @@ class MISPExporter(Responder):
             self.logger.error("Exception occurred loading MISP", exc_info=True)
 
         self.misp_map = {
-            "ip-src": {"cat": "Network activity", "type": "ip-src"},
-            "ip-dst": {"cat": "Network activity", "type": "ip-dst"},
-            "domain": {"cat": "Network activity", "type": "domain"},
-            "url": {"cat": "Network activity", "type": "url"},
-            "uri_path": {"cat": "Network activity", "type": "uri"},
-            "email-subject": {"cat": "Payload delivery", "type": "email-subject"},
-            "email-src": {"cat": "Payload delivery", "type": "email-src"},
-            "email-dst": {"cat": "Payload delivery", "type": "email-dst"},
-            "unique-string": {"cat": "Artifacts dropped", "type": "pattern-in-file"},
-            "sig-bro": {"cat": "External analysis", "type": "bro"},
-            "sig-snort": {"cat": "External analysis", "type": "snort"},
-            "sig-yara": {"cat": "Artifacts dropped", "type": "yara"},
-            "sig-other": {"cat": "Support Tool", "type": "other"},
-            "tewi-number": {"cat": "Internal reference", "type": "text", "tag": "tewi-number"},
-            "ext-ref": {"cat": "Internal reference", "type": "text", "tag": "ext-ref"},
-            "related-case": {"cat": "Internal reference", "type": "text", "tag": "related-case"},
-            "user-agent": {"cat": "Network activity", "type": "user-agent"},
-            "md5": {"cat": "Payload delivery", "type": "md5"},
-            "sha1": {"cat": "Payload delivery", "type": "sha1"},
-            "sha256": {"cat": "Payload delivery", "type": "sha256"}
+            "ip-src": {"cat": "Network activity", "type": "ip-src", "to_ids": True},
+            "ip-dst": {"cat": "Network activity", "type": "ip-dst", "to_ids": False},
+            "domain": {"cat": "Network activity", "type": "domain", "to_ids": True},
+            "url": {"cat": "Network activity", "type": "url", "to_ids": True},
+            "uri_path": {"cat": "Network activity", "type": "uri", "to_ids": True},
+            "email-subject": {"cat": "Payload delivery", "type": "email-subject", "to_ids": True},
+            "email-src": {"cat": "Payload delivery", "type": "email-src", "to_ids": True},
+            "email-dst": {"cat": "Payload delivery", "type": "email-dst", "to_ids": False},
+            "unique-string": {"cat": "Artifacts dropped", "type": "pattern-in-file", "to_ids": True},
+            "sig-bro": {"cat": "External analysis", "type": "bro", "to_ids": True},
+            "sig-snort": {"cat": "External analysis", "type": "snort", "to_ids": True},
+            "sig-yara": {"cat": "Artifacts dropped", "type": "yara", "to_ids": True},
+            "sig-other": {"cat": "Support Tool", "type": "other", "to_ids": False},
+            "tewi-number": {"cat": "Internal reference", "type": "text", "tag": "tewi-number", "to_ids": False},
+            "ext-ref": {"cat": "Internal reference", "type": "text", "tag": "ext-ref", "to_ids": False},
+            "related-case": {"cat": "Internal reference", "type": "text", "tag": "related-case", "to_ids": False},
+            "user-agent": {"cat": "Network activity", "type": "user-agent", "to_ids": True},
+            "md5": {"cat": "Payload delivery", "type": "md5", "to_ids": True},
+            "sha1": {"cat": "Payload delivery", "type": "sha1", "to_ids": True},
+            "sha256": {"cat": "Payload delivery", "type": "sha256", "to_ids": True}
         }
 
     def get_observables(self, thehive_url, thehive_token, case_id):
@@ -204,6 +204,7 @@ class MISPExporter(Responder):
 
     def add_misp_attributes(self, misp_event, thehive_case):
         # Add all observables that aren't malware samples
+        self.logger.debug("Processing observables")
         for obs in thehive_case['observables']:
             # Ignore files b/c we process them under the malware and suppoting file sections
             if obs['dataType']=="file":
@@ -239,22 +240,40 @@ class MISPExporter(Responder):
                             tag_name = self.misp_map[obs['dataType']]['tag']
                         misp_tag.from_dict(name=tag_name)
                         misp_tags.append(misp_tag)
-
-                    misp_event.add_attribute(self.misp_map[obs['dataType']]['type'], obs['data'],
-                        category=self.misp_map[obs['dataType']]['cat'], tags=misp_tags, comment=comment)
+                    try: 
+                        misp_event.add_attribute(self.misp_map[obs['dataType']]['type'], obs['data'],
+                            category=self.misp_map[obs['dataType']]['cat'], tags=misp_tags, comment=comment,
+                            to_ids=self.misp_map[obs['dataType']]['to_ids'])
+                    except Exception as ex:
+                        self.logger.error("Error adding attribute.", exc_info=True)
+                        self.error(ex)
                 else:
-                    misp_event.add_attribute("other", obs['data'], tags=misp_tags, comment=comment)
+                    try:
+                        misp_event.add_attribute("other", obs['data'], tags=misp_tags, comment=comment,
+                        to_ids=False)
+                    except Exception as ex:
+                        self.logger.error("Error adding attribute.", exc_info=True)
+                        self.error(ex)
         
         # Add malware samples
         if isinstance(thehive_case['malware'], dict):
+            self.logger.debug("Looping through malware.")
             for mal_hash, sample in thehive_case['malware'].items():
                 decoded = base64.b64decode(sample['file'])
                 pseudofile = BytesIO(decoded)
                 try:
-                    fo, peo, seos = make_binary_objects(pseudofile=pseudofile)
+                    # fo, peo, seos = make_binary_objects(pseudofile=pseudofile, filename=sample["name"])
+                    misp_event.add_attribute('malware-sample', value=sample["name"], data=pseudofile, expand='binary')
                 except Exception as ex:
-                    self.logger.warning("Error parsing sample", exc_info=True)
+                    self.logger.warning("Error adding malware sample", exc_info=True)
                     continue
+                '''
+                try:
+                    misp_event.run_expansions()
+                except Exception as ex:
+                    self.logger.warning("Error running expansions", exc_info=True)
+                    continue
+                # Above just tries running make_binary_objects again - which requires LIEF - which CentOS hates.
                 if seos:
                     for s in seos:
                         misp_event.add_object(s)
@@ -262,12 +281,15 @@ class MISPExporter(Responder):
                     misp_event.add_object(peo)
                 if fo:
                     misp_event.add_object(fo)
+                '''
 
         # Add case-related data
         case_owner = self.get_param('data.createdBy', "Unknown")
         custom_fields = self.get_param('data.customFields', None)
         self.logger.debug("Processing custom fields... %s", str(custom_fields))
         for k, v in custom_fields.items():
+            if v['string'] == None:
+                v['string'] = 'None'
             #self.logger.debug("Key/Value: %s : %s", (str(k), str(v)))
             if k == "sitRep":
                 #self.logger.debug("sitRep found. K/V: %s : %s", (str(k), str(v)))
@@ -416,3 +438,4 @@ class MISPExporter(Responder):
 
 if __name__ == '__main__':
     MISPExporter().run()
+
